@@ -36,7 +36,6 @@ contract SpectraWrappedtAVAX is Spectra4626Wrapper {
     ) external initializer {
         __Spectra4626Wrapper_init(_wavax, _tavax, _initAuth);
         IERC20(_wavax).forceApprove(_treehouseRouter, type(uint256).max);
-        IERC20(_savax).forceApprove(_treehouseRouter, type(uint256).max);
         wAVAX = _wavax;
         sAVAX = _savax;
         treehouseRouter = _treehouseRouter;
