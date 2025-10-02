@@ -7,6 +7,7 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC20Metadata, IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {ISAVAX} from "../interfaces/ISAVAX.sol";
 
 /// @title SpectraWrappedtAVAX - Implementation of Spectra ERC4626 wrapper for tAVAX
 /// @notice This contract wraps the tAVAX with the ERC4626 interface
@@ -107,7 +108,7 @@ contract SpectraWrappedtAVAX is Spectra4626Wrapper {
         uint256 assets,
         Math.Rounding rounding
     ) internal view override(ERC4626Upgradeable) returns (uint256) {
-        uint256 sAVAXAmount =  IERC4626(sAVAX).convertToShares(assets);
+        uint256 sAVAXAmount =  ISAVAX(sAVAX).getSharesByPooledAvax(assets);
         uint256 vaultSharesAmount = IERC4626(vaultShare()).convertToShares(sAVAXAmount);
         return _previewWrap(vaultSharesAmount, rounding);
     }
@@ -122,7 +123,7 @@ contract SpectraWrappedtAVAX is Spectra4626Wrapper {
     ) internal view override(ERC4626Upgradeable) returns (uint256) {
         uint256 vaultSharesAmount = _previewUnwrap(shares, rounding);
         uint256 sAVAXAmount = IERC4626(vaultShare()).convertToAssets(vaultSharesAmount);
-        return IERC4626(sAVAX).convertToAssets(sAVAXAmount);
+        return ISAVAX(sAVAX).getPooledAvaxByShares(sAVAXAmount);
     }
 
     function _deposit(
