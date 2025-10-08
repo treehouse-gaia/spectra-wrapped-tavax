@@ -2,16 +2,23 @@
 src = "src"
 out = "out"
 libs = ["lib"]
-remappings = [
-    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
-    "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/"
-]
+
+# Import remappings are defined in remappings.txt
+# Run `forge remappings > remappings.txt` to regenerate
 
 # Compiler settings
 solc = "0.8.24"
 optimizer = true
 optimizer_runs = 200
 via_ir = false
+
+# Enable FFI for advanced scripting (optional, use with caution)
+ffi = false
+
+# Build settings
+auto_detect_remappings = true
+build_info = true
+extra_output = ["storageLayout"]
 
 # Testing settings
 gas_reports = ["*"]
@@ -25,5 +32,17 @@ avalanche_testnet = "https://api.avax-test.network/ext/bc/C/rpc"
 [etherscan]
 avalanche = { key = "${SNOWTRACE_API_KEY}", url = "https://api.snowtrace.io/api" }
 avalanche_testnet = { key = "${SNOWTRACE_API_KEY}", url = "https://api-testnet.snowtrace.io/api" }
+
+# Dependency tracking (for documentation and CI)
+# Note: This project uses Git submodules for now, but you can migrate to Soldeer when stable
+[dependencies]
+# forge-std = "1.7.6"
+# openzeppelin-contracts = "5.0.2"
+# openzeppelin-contracts-upgradeable = "5.0.2"
+
+# Soldeer configuration (experimental - uncomment to enable)
+# [soldeer]
+# enabled = false
+# remappings_generate = true
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
