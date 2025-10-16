@@ -8,12 +8,14 @@ import {IRewardsProxy} from "./interfaces/IRewardsProxy.sol";
 import {ISpectra4626Wrapper, IERC4626} from "./interfaces/ISpectra4626Wrapper.sol";
 import {AccessManagedUpgradeable} from "@openzeppelin/contracts-upgradeable/access/manager/AccessManagedUpgradeable.sol";
 import {ERC4626Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 /// @dev This contract implements a wrapper to facilitate compliance of an interest-bearing vault with the ERC-4626 standard,
 /// making it compatible for deploying a Spectra Principal Token.
 abstract contract Spectra4626Wrapper is
     ERC4626Upgradeable,
     AccessManagedUpgradeable,
+    ReentrancyGuardUpgradeable,
     ISpectra4626Wrapper
 {
     using Math for uint256;
@@ -107,7 +109,10 @@ abstract contract Spectra4626Wrapper is
     }
 
     /// @dev See {ISpectra4626Wrapper-wrap}.
-    function wrap(uint256 vaultShares, address receiver) public virtual returns (uint256) {
+    function wrap(
+        uint256 vaultShares,
+        address receiver
+    ) public virtual nonReentrant returns (uint256) {
         address caller = _msgSender();
         uint256 sharesToMint = previewWrap(vaultShares);
         IERC20(vaultShare()).safeTransferFrom(caller, address(this), vaultShares);
@@ -134,7 +139,7 @@ abstract contract Spectra4626Wrapper is
         uint256 shares,
         address receiver,
         address owner
-    ) public virtual returns (uint256) {
+    ) public virtual nonReentrant returns (uint256) {
         address caller = _msgSender();
         if (caller != owner) {
             _spendAllowance(owner, caller, shares);
@@ -161,7 +166,7 @@ abstract contract Spectra4626Wrapper is
     }
 
     /// @dev See {ISpectra4626Wrapper-claimRewards}. */
-    function claimRewards(bytes memory data) external virtual restricted {
+    function claimRewards(bytes memory data) external virtual restricted nonReentrant {
         address _rewardsProxy = rewardsProxy();
         if (_rewardsProxy == address(0) || _rewardsProxy.code.length == 0) {
             revert NoRewardsProxy();

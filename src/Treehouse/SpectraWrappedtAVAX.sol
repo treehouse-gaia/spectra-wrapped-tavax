@@ -133,7 +133,8 @@ contract SpectraWrappedtAVAX is Spectra4626Wrapper {
         uint256 shares
     ) internal override(ERC4626Upgradeable) {
         SafeERC20.safeTransferFrom(IERC20(asset()), caller, address(this), assets);
-        _wrapperDeposit(assets);
+        uint256 tAVAXReceived = _wrapperDeposit(assets);
+        shares = _previewWrap(tAVAXReceived, Math.Rounding.Floor);
         _mint(receiver, shares);
         emit Deposit(caller, receiver, assets, shares);
     }
@@ -143,10 +144,12 @@ contract SpectraWrappedtAVAX is Spectra4626Wrapper {
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Internal function to mint tAVAX shares by first depositing in the sAVAX vault.
-    function _wrapperDeposit(uint256 amount) internal {
+    function _wrapperDeposit(uint256 amount) internal returns (uint256 tAVAXReceived) {
         if (amount != 0) {
+            uint256 tAVAXBefore = IERC20(vaultShare()).balanceOf(address(this));
             // Treehouse router handles the deposit of wAVAX into sAVAX and then into tAVAX. Returns tAVAX to this contract.
             ITreehouseRouter(treehouseRouter).deposit(wAVAX, amount);
+            tAVAXReceived =  IERC20(vaultShare()).balanceOf(address(this)) - tAVAXBefore;
         }
     }
 }
