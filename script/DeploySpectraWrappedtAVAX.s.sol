@@ -4,6 +4,9 @@ pragma solidity ^0.8.20;
 import {Script, console} from "forge-std/Script.sol";
 import {SpectraWrappedtAVAX} from "../src/Treehouse/SpectraWrappedtAVAX.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {ERC1967Utils} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 
 /**
  * @title DeploySpectraWrappedtAVAX
@@ -35,6 +38,8 @@ contract DeploySpectraWrappedtAVAX is Script {
     SpectraWrappedtAVAX public implementation;
     TransparentUpgradeableProxy public proxy;
     SpectraWrappedtAVAX public wrappedTAVAX;
+    address public multisigAddr;
+    address public proxyAdminAddress;
 
     function setUp() public {
         // AVALANCHE MAINNET ADDRESSES (C-Chain: 43114)
@@ -59,6 +64,7 @@ contract DeploySpectraWrappedtAVAX is Script {
     function run() external {
         // Start broadcasting transactions
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        multisigAddr = address(0xC807aFFBf0156d816de6E707C3Bb10A24eE0f9AB);
         vm.startBroadcast(deployerPrivateKey);
 
         console.log("Deploying SpectraWrappedtAVAX...");
@@ -95,7 +101,7 @@ contract DeploySpectraWrappedtAVAX is Script {
         console.log("Step 3: Deploying TransparentUpgradeableProxy...");
         proxy = new TransparentUpgradeableProxy(
             address(implementation),
-            vm.addr(deployerPrivateKey),  // initialOwner of the ProxyAdmin (that will be created)
+            multisigAddr,  // initialOwner of the ProxyAdmin (that will be created)
             initData
         );
         console.log("Proxy deployed at:", address(proxy));
@@ -119,12 +125,17 @@ contract DeploySpectraWrappedtAVAX is Script {
         require(wrappedTAVAX.sAVAX() == sAVAX, "sAVAX mismatch");
         require(wrappedTAVAX.treehouseRouter() == treehouseRouter, "TreehouseRouter mismatch");
 
+        // Verify ProxyAdmin ownership
+        _verifyProxyAdmin();
+
         console.log("");
         console.log("===========================================");
         console.log("Deployment successful!");
         console.log("===========================================");
         console.log("Implementation:", address(implementation));
         console.log("Proxy (SpectraWrappedtAVAX):", address(proxy));
+        console.log("ProxyAdmin:", proxyAdminAddress);
+        console.log("ProxyAdmin Owner (Multisig):", multisigAddr);
         console.log("===========================================");
         console.log("");
         console.log("IMPORTANT: Save the proxy address for interactions!");
@@ -136,6 +147,24 @@ contract DeploySpectraWrappedtAVAX is Script {
         _saveDeployment();
     }
 
+    function _verifyProxyAdmin() internal {
+        console.log("");
+        console.log("Step 6: Verifying ProxyAdmin ownership...");
+
+        // Get the ProxyAdmin address from the proxy using the EIP-1967 admin storage slot
+        // This is cleaner than the raw vm.load() call - using the constant from ERC1967Utils
+        proxyAdminAddress = address(uint160(uint256(
+            vm.load(address(proxy), ERC1967Utils.ADMIN_SLOT)
+        )));
+
+        console.log("  ProxyAdmin address:", proxyAdminAddress);
+        console.log("  ProxyAdmin owner:", ProxyAdmin(proxyAdminAddress).owner());
+        console.log("  Expected multisig:", multisigAddr);
+
+        require(ProxyAdmin(proxyAdminAddress).owner() == multisigAddr, "ProxyAdmin owner is not multisig");
+        console.log("  [OK] ProxyAdmin is owned by multisig");
+    }
+
     function _saveDeployment() internal {
         string memory deploymentInfo = string.concat(
             "# SpectraWrappedtAVAX Deployment\n\n",
@@ -145,7 +174,8 @@ contract DeploySpectraWrappedtAVAX is Script {
             "## Addresses\n\n",
             "- **Implementation:** ", vm.toString(address(implementation)), "\n",
             "- **Proxy (Main Contract):** ", vm.toString(address(proxy)), "\n",
-            "- **Note:** ProxyAdmin is automatically created by TransparentUpgradeableProxy\n\n",
+            "- **ProxyAdmin:** ", vm.toString(proxyAdminAddress), "\n",
+            "- **ProxyAdmin Owner (Multisig):** ", vm.toString(multisigAddr), "\n\n",
             "## Configuration\n\n",
             "- **wAVAX:** ", vm.toString(wAVAX), "\n",
             "- **sAVAX:** ", vm.toString(sAVAX), "\n",
