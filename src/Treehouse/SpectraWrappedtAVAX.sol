@@ -92,6 +92,10 @@ contract SpectraWrappedtAVAX is Spectra4626Wrapper {
         address receiver
     ) public override(IERC4626, ERC4626Upgradeable) nonReentrant returns (uint256 shares) {
 
+        uint256 maxAssets = maxDeposit(receiver);
+        if (assets > maxAssets) {
+            revert ERC4626ExceededMaxDeposit(receiver, assets, maxAssets);
+        }
         // Transfer assets from caller
         SafeERC20.safeTransferFrom(IERC20(asset()), _msgSender(), address(this), assets);
 
