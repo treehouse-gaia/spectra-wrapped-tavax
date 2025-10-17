@@ -91,8 +91,12 @@ contract SpectraWrappedtAVAXTest is Test {
         sAVAX.mint(address(treehouseRouter), INITIAL_SUPPLY);
         tAVAX.mint(address(treehouseRouter), INITIAL_SUPPLY);
 
-        // Deploy implementation (logic) contract (constructor disables initializers)
-        implementation = new SpectraWrappedtAVAX();
+        // Deploy implementation (logic) contract with immutable values
+        implementation = new SpectraWrappedtAVAX(
+            address(wAVAX),
+            address(sAVAX),
+            address(treehouseRouter)
+        );
 
         // Prepare initializer calldata (matches initialize signature)
         bytes memory initData = abi.encodeCall(

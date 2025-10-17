@@ -17,14 +17,21 @@ contract SpectraWrappedtAVAX is Spectra4626Wrapper {
     using Math for uint256;
     using SafeERC20 for IERC20;
 
-    address public  wAVAX;
-    address public  sAVAX;
-    address public  treehouseRouter;
+    address public immutable wAVAX;
+    address public immutable sAVAX;
+    address public immutable treehouseRouter;
 
     error WithdrawNotImplemented();
     error RedeemNotImplemented();
 
-    constructor() {
+    constructor(
+        address _wavax,
+        address _savax,
+        address _treehouseRouter
+    ) {
+        wAVAX = _wavax;
+        sAVAX = _savax;
+        treehouseRouter = _treehouseRouter;
         _disableInitializers();
     }
 
@@ -35,11 +42,13 @@ contract SpectraWrappedtAVAX is Spectra4626Wrapper {
         address _treehouseRouter,
         address _initAuth
     ) external initializer {
+        // Validate that the immutable values match what's expected
+        require(_wavax == wAVAX, "wAVAX mismatch");
+        require(_savax == sAVAX, "sAVAX mismatch");
+        require(_treehouseRouter == treehouseRouter, "TreehouseRouter mismatch");
+        
         __Spectra4626Wrapper_init(_wavax, _tavax, _initAuth);
         IERC20(_wavax).forceApprove(_treehouseRouter, type(uint256).max);
-        wAVAX = _wavax;
-        sAVAX = _savax;
-        treehouseRouter = _treehouseRouter;
     }
 
     /*//////////////////////////////////////////////////////////////

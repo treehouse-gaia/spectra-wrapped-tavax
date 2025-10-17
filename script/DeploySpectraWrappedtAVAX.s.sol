@@ -74,7 +74,7 @@ contract DeploySpectraWrappedtAVAX is Script {
 
         // Step 1: Deploy implementation contract
         console.log("Step 1: Deploying implementation contract...");
-        implementation = new SpectraWrappedtAVAX();
+        implementation = new SpectraWrappedtAVAX(wAVAX, sAVAX, treehouseRouter);
         console.log("Implementation deployed at:", address(implementation));
 
         // Step 2: Prepare initialization data
