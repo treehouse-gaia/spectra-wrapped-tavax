@@ -3,21 +3,28 @@ pragma solidity ^0.8.20;
 
 import {Script, console} from "forge-std/Script.sol";
 import {SpectraWrappedtAVAX} from "../src/Treehouse/SpectraWrappedtAVAX.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {ERC1967Utils} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 
 /**
  * @title DeploySpectraWrappedtAVAX
- * @notice Deployment script for SpectraWrappedtAVAX using ERC1967 proxy pattern
- * @dev Usage:
+ * @notice Deployment script for SpectraWrappedtAVAX using TransparentUpgradeableProxy
+ * @dev This script deploys:
+ *   1. Implementation contract (SpectraWrappedtAVAX)
+ *   2. TransparentUpgradeableProxy (automatically creates ProxyAdmin and initializes)
+ *
+ * The TransparentUpgradeableProxy constructor automatically creates a ProxyAdmin contract
+ * with the deployer as the initial owner. This ProxyAdmin manages all upgrade operations.
+ *
+ * Usage:
  *   forge script script/DeploySpectraWrappedtAVAX.s.sol:DeploySpectraWrappedtAVAX --rpc-url <RPC_URL> --broadcast --verify
  *
  * Environment variables required:
- *   - WAVAX_ADDRESS: Address of wrapped AVAX token
- *   - SAVAX_ADDRESS: Address of staked AVAX token (sAVAX)
- *   - TAVAX_ADDRESS: Address of TreeHouse AVAX token (tAVAX)
- *   - TREEHOUSE_ROUTER_ADDRESS: Address of TreeHouse router
- *   - INITIAL_AUTHORITY_ADDRESS: Address of the initial authority (access manager or admin)
- *   - PRIVATE_KEY or --account for signing (via foundry keystore)
+ *   - PRIVATE_KEY: Private key for deployment (or use --account with foundry keystore)
+ *
+ * Addresses are hardcoded for Avalanche mainnet. For other networks, modify setUp() function.
  */
 contract DeploySpectraWrappedtAVAX is Script {
     // Deployment addresses will be read from environment variables
@@ -29,8 +36,10 @@ contract DeploySpectraWrappedtAVAX is Script {
 
     // Deployed contract addresses
     SpectraWrappedtAVAX public implementation;
-    ERC1967Proxy public proxy;
+    TransparentUpgradeableProxy public proxy;
     SpectraWrappedtAVAX public wrappedTAVAX;
+    address public multisigAddr;
+    address public proxyAdminAddress;
 
     function setUp() public {
         // AVALANCHE MAINNET ADDRESSES (C-Chain: 43114)
@@ -55,6 +64,7 @@ contract DeploySpectraWrappedtAVAX is Script {
     function run() external {
         // Start broadcasting transactions
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        multisigAddr = address(0xC807aFFBf0156d816de6E707C3Bb10A24eE0f9AB);
         vm.startBroadcast(deployerPrivateKey);
 
         console.log("Deploying SpectraWrappedtAVAX...");
@@ -70,7 +80,7 @@ contract DeploySpectraWrappedtAVAX is Script {
 
         // Step 1: Deploy implementation contract
         console.log("Step 1: Deploying implementation contract...");
-        implementation = new SpectraWrappedtAVAX();
+        implementation = new SpectraWrappedtAVAX(wAVAX, sAVAX, treehouseRouter);
         console.log("Implementation deployed at:", address(implementation));
 
         // Step 2: Prepare initialization data
@@ -86,17 +96,23 @@ contract DeploySpectraWrappedtAVAX is Script {
             )
         );
 
-        // Step 3: Deploy proxy with initialization
-        console.log("Step 3: Deploying proxy and initializing...");
-        proxy = new ERC1967Proxy(address(implementation), initData);
+        // Step 3: Deploy TransparentUpgradeableProxy
+        // Note: This will automatically create a ProxyAdmin with deployer as owner
+        console.log("Step 3: Deploying TransparentUpgradeableProxy...");
+        proxy = new TransparentUpgradeableProxy(
+            address(implementation),
+            multisigAddr,  // initialOwner of the ProxyAdmin (that will be created)
+            initData
+        );
         console.log("Proxy deployed at:", address(proxy));
 
         // Step 4: Cast proxy to implementation interface
+        console.log("Step 4: Cast proxy to implementation interface");
         wrappedTAVAX = SpectraWrappedtAVAX(address(proxy));
 
         // Step 5: Verify deployment
         console.log("");
-        console.log("Step 4: Verifying deployment...");
+        console.log("Step 5: Verifying deployment...");
         console.log("  Wrapper asset (wAVAX):", wrappedTAVAX.asset());
         console.log("  Wrapper vaultShare (tAVAX):", wrappedTAVAX.vaultShare());
         console.log("  Wrapper name:", wrappedTAVAX.name());
@@ -109,12 +125,17 @@ contract DeploySpectraWrappedtAVAX is Script {
         require(wrappedTAVAX.sAVAX() == sAVAX, "sAVAX mismatch");
         require(wrappedTAVAX.treehouseRouter() == treehouseRouter, "TreehouseRouter mismatch");
 
+        // Verify ProxyAdmin ownership
+        _verifyProxyAdmin();
+
         console.log("");
         console.log("===========================================");
         console.log("Deployment successful!");
         console.log("===========================================");
         console.log("Implementation:", address(implementation));
         console.log("Proxy (SpectraWrappedtAVAX):", address(proxy));
+        console.log("ProxyAdmin:", proxyAdminAddress);
+        console.log("ProxyAdmin Owner (Multisig):", multisigAddr);
         console.log("===========================================");
         console.log("");
         console.log("IMPORTANT: Save the proxy address for interactions!");
@@ -126,6 +147,24 @@ contract DeploySpectraWrappedtAVAX is Script {
         _saveDeployment();
     }
 
+    function _verifyProxyAdmin() internal {
+        console.log("");
+        console.log("Step 6: Verifying ProxyAdmin ownership...");
+
+        // Get the ProxyAdmin address from the proxy using the EIP-1967 admin storage slot
+        // This is cleaner than the raw vm.load() call - using the constant from ERC1967Utils
+        proxyAdminAddress = address(uint160(uint256(
+            vm.load(address(proxy), ERC1967Utils.ADMIN_SLOT)
+        )));
+
+        console.log("  ProxyAdmin address:", proxyAdminAddress);
+        console.log("  ProxyAdmin owner:", ProxyAdmin(proxyAdminAddress).owner());
+        console.log("  Expected multisig:", multisigAddr);
+
+        require(ProxyAdmin(proxyAdminAddress).owner() == multisigAddr, "ProxyAdmin owner is not multisig");
+        console.log("  [OK] ProxyAdmin is owned by multisig");
+    }
+
     function _saveDeployment() internal {
         string memory deploymentInfo = string.concat(
             "# SpectraWrappedtAVAX Deployment\n\n",
@@ -134,7 +173,9 @@ contract DeploySpectraWrappedtAVAX is Script {
             "**Timestamp:** ", vm.toString(block.timestamp), "\n\n",
             "## Addresses\n\n",
             "- **Implementation:** ", vm.toString(address(implementation)), "\n",
-            "- **Proxy (Main Contract):** ", vm.toString(address(proxy)), "\n\n",
+            "- **Proxy (Main Contract):** ", vm.toString(address(proxy)), "\n",
+            "- **ProxyAdmin:** ", vm.toString(proxyAdminAddress), "\n",
+            "- **ProxyAdmin Owner (Multisig):** ", vm.toString(multisigAddr), "\n\n",
             "## Configuration\n\n",
             "- **wAVAX:** ", vm.toString(wAVAX), "\n",
             "- **sAVAX:** ", vm.toString(sAVAX), "\n",
