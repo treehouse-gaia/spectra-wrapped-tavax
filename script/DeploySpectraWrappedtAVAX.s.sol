@@ -130,7 +130,7 @@ contract DeploySpectraWrappedtAVAX is Script {
 
         console.log("");
         console.log("===========================================");
-        console.log("Deployment successful!");
+        console.log("SIMULATION SUCCESSFUL - PREPARING TO BROADCAST");
         console.log("===========================================");
         console.log("Implementation:", address(implementation));
         console.log("Proxy (SpectraWrappedtAVAX):", address(proxy));
@@ -140,6 +140,8 @@ contract DeploySpectraWrappedtAVAX is Script {
         console.log("");
         console.log("IMPORTANT: Save the proxy address for interactions!");
         console.log("Contract address to use:", address(proxy));
+        console.log("");
+        console.log("NOTE: Check for transaction broadcast results below...");
 
         vm.stopBroadcast();
 
