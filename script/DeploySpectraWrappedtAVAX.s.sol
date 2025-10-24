@@ -144,7 +144,7 @@ contract DeploySpectraWrappedtAVAX is Script {
         vm.stopBroadcast();
 
         // Save deployment info to file
-        _saveDeployment();
+        // _saveDeployment();
     }
 
     function _verifyProxyAdmin() internal {
