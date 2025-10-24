@@ -65,7 +65,7 @@ contract SpectraWrappedtAVAX is Spectra4626Wrapper {
 
     /** @dev See {IERC4626-maxMint}. */
     function maxMint(address) public view override(IERC4626, ERC4626Upgradeable) returns (uint256) {
-        return uint256(type(int256).max);
+        return 0;
     }
 
     /// @dev See {IERC4626-maxWithdraw}. */
